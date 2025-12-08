@@ -195,7 +195,6 @@ export const getUserRequests = async (userId) => {
 // getPendingRequests
 export const getPendingRequests = async () => {
   try {
-    // Intenta la query optimizada
     const q = query(
       requestsCollection, 
       where("status", "==", "pending"), 
@@ -252,29 +251,56 @@ export const updateRequestStatus = async (requestId, status, notes = "") => {
   if (notes) {
     updateData.adminNotes = notes;
   }
-  
-    if (status === "devuelto" || status === "returned") {
-    const requestSnapshot = await getDoc(requestDoc);
-    if (requestSnapshot.exists()) {
-      const requestData = requestSnapshot.data();
-      const materialId = requestData.materialId;
+
+  const requestSnapshot = await getDoc(requestDoc);
+  const existingData = requestSnapshot.exists() ? requestSnapshot.data() : null;
+  const prevStatus = existingData?.status;
+  const materialId = existingData?.materialId;
+
+  if (materialId) {
+    try {
+      const materialDoc = doc(db, "materials", materialId);
+      const materialSnapshot = await getDoc(materialDoc);
+
+      if (materialSnapshot.exists()) {
+        const materialData = materialSnapshot.data();
+        const qty = Number(materialData.quantity) || Number(materialData.stock) || 0;
+        const available = Number(materialData.available) || 0;
+        const maxStock = qty > 0 ? qty : available;
+
+        // Descontar al aprobar
+        if (status === "approved" && prevStatus !== "approved" && prevStatus !== "entregado" && prevStatus !== "devuelto") {
+          const newAvailable = Math.max(0, available - 1);
+          await updateDoc(materialDoc, {
+            available: newAvailable,
+            updatedAt: serverTimestamp()
+          });
+        }
+
       
-      if (materialId) {
-        const materialDoc = doc(db, "materials", materialId);
-        const materialSnapshot = await getDoc(materialDoc);
-        
-        if (materialSnapshot.exists()) {
-          const materialData = materialSnapshot.data();
-          const newAvailable = Math.min(materialData.stock || materialData.quantity, materialData.available + 1);
+        if (status === "devuelto" || status === "returned") {
+          const newAvailable = Math.min(maxStock, available + 1);
+          await updateDoc(materialDoc, {
+            available: newAvailable,
+            updatedAt: serverTimestamp()
+          });
+        }
+
+        // Si se rechaza luego de haber aprobado/entregado, devolver 1
+        if (status === "rechazado" && (prevStatus === "approved" || prevStatus === "entregado")) {
+          const newAvailable = Math.min(maxStock, available + 1);
           await updateDoc(materialDoc, {
             available: newAvailable,
             updatedAt: serverTimestamp()
           });
         }
       }
+    } catch (err) {
+      console.error('No se pudo actualizar disponibilidad del material:', err);
+      throw err;
     }
   }
-  
+
   await updateDoc(requestDoc, updateData);
   return await getDoc(requestDoc);
 };
