@@ -20,7 +20,6 @@ export const usersCollection = collection(db, "users");
 export const materialsCollection = collection(db, "materials");
 export const requestsCollection = collection(db, "requests");
 
-// Maneja creación y actualización de usuarios
 export const createOrUpdateUserDocument = async (userId, userData) => {
   const userDoc = doc(db, "users", userId);
   const userSnapshot = await getDoc(userDoc);
@@ -42,7 +41,6 @@ export const createOrUpdateUserDocument = async (userId, userData) => {
   return await getDoc(userDoc);
 };
 
-// Función alias para mantener compatibilidad
 export const createUserDocument = createOrUpdateUserDocument;
 
 // Obtener documento de usuario
@@ -286,7 +284,6 @@ export const updateRequestStatus = async (requestId, status, notes = "") => {
           });
         }
 
-        // Si se rechaza luego de haber aprobado/entregado, devolver 1
         if (status === "rechazado" && (prevStatus === "approved" || prevStatus === "entregado")) {
           const newAvailable = Math.min(maxStock, available + 1);
           await updateDoc(materialDoc, {
@@ -394,7 +391,7 @@ export const getRequestById = async (requestId) => {
   };
 };
 
-// Eliminar solicitud (solo admin)
+// Eliminar solicitud 
 export const deleteRequest = async (requestId) => {
   const requestDoc = doc(db, "requests", requestId);
   await deleteDoc(requestDoc);

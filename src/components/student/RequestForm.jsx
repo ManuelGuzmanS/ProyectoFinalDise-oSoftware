@@ -21,6 +21,11 @@ export default function RequestForm({ material, onClose, onSuccess }) {
   const today = format(new Date(), 'yyyy-MM-dd');
   const maxDate = format(addDays(new Date(), 30), 'yyyy-MM-dd');
 
+  const parseLocalDate = (value) => {
+    const [y, m, d] = value.split('-').map(Number);
+    return new Date(y, m - 1, d, 0, 0, 0, 0);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -29,15 +34,16 @@ export default function RequestForm({ material, onClose, onSuccess }) {
       return;
     }
 
-    const start = new Date(startDate);
-    const end = new Date(endDate);
+    const start = parseLocalDate(startDate);
+    const end = parseLocalDate(endDate);
+    const todayStart = parseLocalDate(today);
 
     if (isBefore(end, start)) {
       setError('La fecha de fin debe ser posterior a la fecha de inicio');
       return;
     }
 
-    if (isBefore(start, new Date())) {
+    if (isBefore(start, todayStart)) {
       setError('No puedes solicitar préstamos para fechas pasadas');
       return;
     }
